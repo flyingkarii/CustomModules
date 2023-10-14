@@ -46,10 +46,11 @@ namespace BBRModules
             return Task.CompletedTask;
         }
 
-        public override Task OnPlayerDisconnected(RunnerPlayer player)
+        public override async Task OnPlayerDisconnected(RunnerPlayer player)
         {
-            CurrencyPlayers.RemoveAll((p) => p.Player.SteamID == player.SteamID);
-            return Task.CompletedTask;
+            CurrencyPlayer currencyPlayer = GetCurrencyPlayer(player);
+            await currencyPlayer.SaveAsync();
+            CurrencyPlayers.Remove(currencyPlayer);
         }
 
         public CurrencyPlayer GetCurrencyPlayer(RunnerPlayer player) => CurrencyPlayers.Where(p => p.Player.SteamID == player.SteamID).Single();
@@ -95,6 +96,10 @@ namespace BBRModules
         }
 
         public int GetCurrency() => CurrencyAmount;
+        public string GetCurrencyString() => new PlaceholderLib(CurrencySystem.Configuration.CurrencyFormat)
+            .AddParam("amount", CurrencyAmount)
+            .AddParam("currency", CurrencySystem.Configuration.Currency)
+            .Run();
 
         public CurrencyPlayer Increment(int amount)
         {
