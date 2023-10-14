@@ -53,28 +53,33 @@ namespace BBRModules
             CurrencyPlayers.Remove(currencyPlayer);
         }
 
-        public CurrencyPlayer GetCurrencyPlayer(RunnerPlayer player) => CurrencyPlayers.Where(p => p.Player.SteamID == player.SteamID).Single();
+        public CurrencyPlayer GetCurrencyPlayer(RunnerPlayer player) => CurrencyPlayers.Where(p => p.SteamID == player.SteamID.ToString()).Single();
+
+        public CurrencyPlayer GetOfflineCurrencyPlayer(string steamId)
+        {
+            return CurrencyPlayers.Where(p => p.SteamID == steamId).Single() ?? new CurrencyPlayer(this, steamId);
+        }
     }
 
     public class CurrencyPlayer
     {
-        public RunnerPlayer Player;
+        public string SteamID;
         public CurrencySystem System;
         public int CurrencyAmount;
 
-        public CurrencyPlayer(CurrencySystem system, RunnerPlayer player)
+        public CurrencyPlayer(CurrencySystem system, string steamId)
         {
-            Player = player;
+            SteamID = steamId;
             System = system;
 
             SqliteConnection connection = System.CurrencyDatabase.GetConnection();
             SqliteCommand create = new("INSERT OR IGNORE INTO currencyStore (steamId, currency) VALUES ($steamId, $default)", connection);
-            create.Parameters.AddWithValue("$steamId", Player.SteamID.ToString());
+            create.Parameters.AddWithValue("$steamId", SteamID.ToString());
             create.Parameters.AddWithValue("$default", CurrencySystem.Configuration.StartingAmount);
             create.ExecuteNonQuery();
 
             SqliteCommand get = new("SELECT currency FROM currencyStore WHERE steamId=$steamId", connection);
-            get.Parameters.AddWithValue("$steamId", Player.SteamID.ToString());
+            get.Parameters.AddWithValue("$steamId", SteamID.ToString());
             object? value = get.ExecuteScalar();
 
             if (value != null)
@@ -151,7 +156,6 @@ namespace BBRModules
 
         public void OnChanged(object? e, CurrencyChangedArgs args)
         {
-            Console.WriteLine("Updated!");
             CurrencyAmount = args.NewValue;
         }
 
@@ -159,7 +163,7 @@ namespace BBRModules
         {
             SqliteConnection connection = System.CurrencyDatabase.GetConnection();
             SqliteCommand command = new("UPDATE currencyStore SET currency = $amount WHERE steamId=$steamId", connection);
-            command.Parameters.AddWithValue("$steamId", Player.SteamID);
+            command.Parameters.AddWithValue("$steamId", SteamID);
             command.Parameters.AddWithValue("$amount", CurrencyAmount);
             await command.ExecuteNonQueryAsync();
         }
@@ -224,6 +228,25 @@ namespace BBRModules
         public SqliteConnection GetConnection()
         {
             return Connection;
+        }
+
+        public Dictionary<CurrencyPlayer, int> GetTop(CurrencySystem system, int numToReturn)
+        {
+            Dictionary<CurrencyPlayer, int> wealthiest = new();
+            SqliteCommand top = new SqliteCommand("SELECT TOP $num * FROM currencyStore ORDER BY currency ASC");
+            top.Parameters.AddWithValue("$num", numToReturn);
+
+            using (SqliteDataReader reader = top.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string steamId = reader.GetString(0);
+                    int currency = reader.GetInt32(1);
+                    CurrencyPlayer player = system.GetCurrencyPlayer(steamId);
+
+                    wealthiest.Add()
+                }
+            }
         }
 
         public virtual void OnChanged(CurrencyChangedArgs e)
