@@ -1,4 +1,6 @@
+using BattleBitAPI.Features;
 using System;
+using System.Collections.Generic;
 
 namespace BBRModules
 {
@@ -6,11 +8,18 @@ namespace BBRModules
     {
         public static void Main()
         {
-            Console.WriteLine("\x00\x14\x6c\x9e\x75\xe2\xec\x7c\x5c\xe4\x8a\x9c\x08\x00\x45\x20" +
-"\x00\x2e\x04\x09\x00\x00\xf5\x11\x92\x1c\xbb\xbd\xa6\x25\x2d\x3e" +
-"\xa0\x58\xc6\xa6\x69\xb0\x00\x1a\xfb\x75\x02\x01\x00\x12\x00\x00" +
-"\x00\x09\x00\x00\x20\x57\x82\x00\x00\x00\x00\x00"
-);
+            PaginatorLib paginator = new PaginatorLib(1, 2, 3, 4, 5, 6, 2, 1, 3, 4, 5, 3, 2, 1)
+                .SetPageSize(4);
+            List<string> page = paginator.GetPage(2);
+
+            Console.WriteLine("Page Size: " + paginator.PageSize + 
+                "\nPages: " + paginator.CountPages());
+
+            for (int i = 0; i < page.Count; i++)
+            {
+                string value = page[i];
+                Console.WriteLine($"{i}: {value}");
+            }
         }
     }
 }

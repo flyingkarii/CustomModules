@@ -1,34 +1,37 @@
 using BBRAPIModules;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace BattleBitAPI.Features
 {
-    [Module("A library for placeholders using {placeholder}. Supports color hexes color endings. ({#hex}, {/})", "1.1.0")]
+    [Module("A library for placeholders. Supports multiple elements and formats rich text.", "1.2.1")]
     public class PlaceholderLib : BattleBitModule
     {
 
         private readonly Regex re = new Regex(@"\{([^\}]+)\}", RegexOptions.Compiled);
 
-        public string text { get; set; }
-        public Dictionary<string, object> parameters;
+        public string Text { get; set; }
+        public Dictionary<string, object> Parameters;
 
         public PlaceholderLib()
         {
-            text = "";
-            parameters = new();
+            Text = "";
+            Parameters = new();
         }
 
         public PlaceholderLib(string text)
         {
-            this.text = text;
-            parameters = new Dictionary<string, object>();
+            Text = text;
+            Parameters = new Dictionary<string, object>();
         }
 
         public PlaceholderLib(string text, params object[] values)
         {
-            this.text = text;
-            parameters = new();
+            Text = text;
+            Parameters = new();
 
             if (values.Length > 1)
             {
@@ -40,7 +43,7 @@ namespace BattleBitAPI.Features
                     string key = (string)values[i - 1];
                     object obj = values[i];
 
-                    parameters.Add(key, obj);
+                    Parameters.Add(key, obj);
                 }
             }
         }
@@ -52,30 +55,74 @@ namespace BattleBitAPI.Features
                 return this;
             }
 
-            parameters.Add(key, value);
+            Parameters.Add(key, value);
             return this;
         }
 
-        public string ReplaceColorCodes()
+        public string GetSurroundedValue(string str)
         {
-            return re.Replace(text, delegate (Match match) {
-                if (match.Groups[1].Value.StartsWith("#"))
-                    return "<color=" + match.Groups[1].Value + ">";
-                else if (match.Groups[1].Value.Equals("/"))
-                    return "</color>";
-                return $"{{{match.Groups[1].Value}}}";
-            });
+            List<string> split = str.Split(" ").ToList();
+            string newString = "";
+
+            bool limited = str.StartsWith("!");
+
+            if (limited)
+            {
+                str = str.Substring(1);
+
+                if (Parameters.ContainsKey(str))
+                    return Parameters[str].ToString()!;
+                else
+                    return "{!" + str + "}";
+            }
+
+            foreach (string value in split)
+            {
+                string newValue = GetValueOf(value);
+                newString += newValue;
+            }
+
+            return newString;
+        }
+
+        public string GetValueOf(string str)
+        {
+            string[] equalsSplit = str.Split("=");
+
+            if (str.StartsWith("#"))
+                return $"<color={str}>";
+            else if (str.StartsWith("/"))
+                return $"<{str}>";
+            else if (str.Equals("/"))
+                return "</color>";
+            else if (Parameters.ContainsKey(str))
+                return GetValueOf(Parameters[str].ToString()!);
+            else if (equalsSplit.Length > 0)
+                return "<" + str + ">";
+
+            switch (str)
+            {
+                case "b":
+                case "i":
+                case "lowercase":
+                case "uppercase":
+                case "smallcaps":
+                case "noparse":
+                case "nobr":
+                case "sup":
+                case "sub":
+                    return "<" + str + ">";
+                default:
+                    return "{" + str + "}";
+            }
         }
 
         public string Run()
         {
-            text = re.Replace(ReplaceColorCodes(), delegate (Match match) {
-                if (parameters.ContainsKey(match.Groups[1].Value))
-                    return parameters[match.Groups[1].Value].ToString();
-                return text;
+            return re.Replace(Text, delegate (Match match)
+            {
+                return GetSurroundedValue(match.Groups[1].Value);
             });
-
-            return ReplaceColorCodes();
         }
     }
 }
