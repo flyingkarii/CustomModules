@@ -164,7 +164,7 @@ namespace BBRModules
                 long punishedAt = reader.GetInt64(2);
                 long punishedFor = reader.GetInt64(3);
 
-                return current - (punishedAt + punishedFor) < 0;
+                return punishedFor == -1 || current - (punishedAt + punishedFor) < 0;
             }
         }
 
@@ -184,7 +184,7 @@ namespace BBRModules
                 long punishedAt = reader.GetInt64(2);
                 long punishedFor = reader.GetInt64(3);
 
-                return current - (punishedAt + punishedFor) < 0;
+                return punishedFor == -1 || current - (punishedAt + punishedFor) < 0;
             }
         }
 
@@ -204,7 +204,7 @@ namespace BBRModules
                 long punishedAt = reader.GetInt64(2);
                 long punishedFor = reader.GetInt64(3);
 
-                if (current - (punishedAt + punishedFor) < 0)
+                if (punishedFor != -1 && current - (punishedAt + punishedFor) < 0)
                 {
                     var remove = Punishments.Connection.CreateCommand();
                     remove.CommandText = "DELETE * FROM punishments WHERE steamId=$steamId";
@@ -230,7 +230,7 @@ namespace BBRModules
                 long punishedAt = reader.GetInt64(2);
                 long punishedFor = reader.GetInt64(3);
 
-                if (current - (punishedAt + punishedFor) < 0)
+                if (punishedFor != -1 && current - (punishedAt + punishedFor) < 0)
                 {
                     var remove = Punishments.Connection.CreateCommand();
                     remove.CommandText = "DELETE * FROM punishments WHERE steamId=$steamId";

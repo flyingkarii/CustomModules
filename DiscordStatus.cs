@@ -79,6 +79,17 @@ namespace BattleBitAPI.Features
             Task.Run(() => disconnectDiscord());
         }
 
+        public override async Task OnPlayerReported(RunnerPlayer from, RunnerPlayer to, ReportReason reason, string additional)
+        {
+            if (!discordReady)
+                return;
+
+            if (reportsChannel == null)
+                reportsChannel = chatMessageChannel;
+
+            await reportsChannel.SendMessageAsync($":smiling_imp: ``{from}`` reported ``{to}`` for {reason}!" + additional != string.Empty ? $"\nAdditional Info: {additional}" : string.Empty);
+        }
+
         public override async Task<bool> OnPlayerTypedMessage(RunnerPlayer player, ChatChannel channel, string msg)
         {
             string chatMessage = new PlaceholderLib(":speech_balloon: ``{name}`` ({channel}): ``{message}``")
