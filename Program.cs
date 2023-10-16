@@ -1,6 +1,6 @@
-using BattleBitAPI.Features;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 
 namespace BBRModules
 {
@@ -8,18 +8,31 @@ namespace BBRModules
     {
         public static void Main()
         {
-            PaginatorLib paginator = new PaginatorLib(1, 2, 3, 4, 5, 6, 2, 1, 3, 4, 5, 3, 2, 1)
-                .SetPageSize(4);
-            List<string> page = paginator.GetPage(2);
+            List<string> gradient = GetGradients("#ff0000", "#0000ff", 10);
+            Console.WriteLine(string.Join(", ", gradient));
+        }
 
-            Console.WriteLine("Page Size: " + paginator.PageSize + 
-                "\nPages: " + paginator.CountPages());
+        public static List<string> GetGradients(string startHex, string endHex, int steps)
+        {
+            Color start = ColorTranslator.FromHtml(startHex);
+            Color end = ColorTranslator.FromHtml(endHex);
+            List<string> hexCodes = new();
 
-            for (int i = 0; i < page.Count; i++)
+            int stepA = ((end.A - start.A) / (steps - 1));
+            int stepR = ((end.R - start.R) / (steps - 1));
+            int stepG = ((end.G - start.G) / (steps - 1));
+            int stepB = ((end.B - start.B) / (steps - 1));
+
+            for (int i = 0; i < steps; i++)
             {
-                string value = page[i];
-                Console.WriteLine($"{i}: {value}");
+                Color color = Color.FromArgb(start.A + (stepA * i),
+                                            start.R + (stepR * i),
+                                            start.G + (stepG * i),
+                                            start.B + (stepB * i));
+                hexCodes.Add(ColorTranslator.ToHtml(color));
             }
+
+            return hexCodes;
         }
     }
 }

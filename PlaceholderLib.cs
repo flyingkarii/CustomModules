@@ -7,10 +7,9 @@ using System.Text.RegularExpressions;
 
 namespace BattleBitAPI.Features
 {
-    [Module("A library for placeholders. Supports multiple elements and formats rich text.", "1.2.1")]
+    [Module("A library for placeholders. Supports multiple elements and formats rich text.", "1.2.3")]
     public class PlaceholderLib : BattleBitModule
     {
-
         private readonly Regex re = new Regex(@"\{([^\}]+)\}", RegexOptions.Compiled);
 
         public string Text { get; set; }
@@ -88,17 +87,20 @@ namespace BattleBitAPI.Features
         public string GetValueOf(string str)
         {
             string[] equalsSplit = str.Split("=");
+            bool limited = str.StartsWith("!");
 
             if (str.StartsWith("#"))
                 return $"<color={str}>";
-            else if (str.StartsWith("/"))
-                return $"<{str}>";
             else if (str.Equals("/"))
                 return "</color>";
-            else if (Parameters.ContainsKey(str))
-                return GetValueOf(Parameters[str].ToString()!);
-            else if (equalsSplit.Length > 0)
+            else if (str.StartsWith("/"))
                 return "<" + str + ">";
+            else if (Parameters.ContainsKey(str))
+                return Parameters[str].ToString();
+            else if (equalsSplit.Length > 1)
+            {
+                return "<" + str + ">";
+            }
 
             switch (str)
             {
