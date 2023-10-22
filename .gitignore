@@ -364,3 +364,7 @@ FodyWeavers.xsd
 .git*
 *.csproj
 *.sln
+/AprilsChat.cs
+/AprilsChatCommands.cs
+/SQLite.cs
+/Program.cs
