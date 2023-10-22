@@ -21,7 +21,7 @@ namespace BBRModules
             if (Configuration.DenyAllTeamSwapping)
             {
                 string message = new PlaceholderLib(Configuration.NoSwappingMessage)
-                    .Run();
+                    .Build();
                 player.SayToChat(message);
                 return false;
             }
@@ -32,8 +32,8 @@ namespace BBRModules
 
             if (teamCount >= ((int)(playersOnline / 2) + extraPlayers))
             {
-                string message = new PlaceholderLib(Configuration.TeamFullMessage, "maxPlayers", teamCount + extraPlayers)
-                    .Run();
+                string message = new PlaceholderLib(Configuration.TeamFullMessage).AddParam("maxPlayers", teamCount + extraPlayers)
+                    .Build();
 
                 player.SayToChat(message);
                 return false;

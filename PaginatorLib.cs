@@ -5,21 +5,19 @@ using System.Linq;
 
 namespace BBRModules
 {
-    [Module("A library to simplify paginating strings, lists, and parameters with a specifiable page size.", "1.0.0")]
+    [Module("A library to simplify paginating strings, lists, and parameters with a specifiable page size.", "1.0.1")]
     public class PaginatorLib : BattleBitModule
     {
         public int PageNum { get; set; } = 0;
         public List<object> Objects { get; set; }
         public int PageSize { get; set; } = 10;
 
+        public PaginatorLib Create() => new PaginatorLib();
+        public PaginatorLib Create(IEnumerable<object> objects) => new PaginatorLib(objects);
+
         public PaginatorLib()
         {
             Objects = new();
-        }
-
-        public PaginatorLib(params object[] objects)
-        {
-            Objects = new(objects);
         }
 
         public PaginatorLib(IEnumerable<object> objects)

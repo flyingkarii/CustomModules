@@ -79,15 +79,22 @@ namespace BattleBitAPI.Features
             Task.Run(() => disconnectDiscord());
         }
 
-        public override async Task OnPlayerReported(RunnerPlayer from, RunnerPlayer to, ReportReason reason, string additional)
+        public override Task OnPlayerReported(RunnerPlayer from, RunnerPlayer to, ReportReason reason, string additional)
         {
             if (!discordReady)
-                return;
+                return Task.CompletedTask;
 
             if (reportsChannel == null)
                 reportsChannel = chatMessageChannel;
 
-            await reportsChannel.SendMessageAsync($":smiling_imp: ``{from}`` reported ``{to}`` for {reason}!" + additional != string.Empty ? $"\nAdditional Info: {additional}" : string.Empty);
+            Task.Run(() => SendReport(from, to, reason, additional));
+            return Task.CompletedTask;
+        }
+
+        private async Task SendReport(RunnerPlayer from, RunnerPlayer to, ReportReason reason, string additional)
+        {
+            string additionalInfo = additional != string.Empty ? $"\nAdditional Info: {additional}" : string.Empty;
+            await reportsChannel.SendMessageAsync($":smiling_imp: ``{from}`` reported ``{to}`` for {reason}!{additionalInfo}");
         }
 
         public override async Task<bool> OnPlayerTypedMessage(RunnerPlayer player, ChatChannel channel, string msg)

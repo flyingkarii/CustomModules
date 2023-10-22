@@ -4,16 +4,21 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace BattleBitAPI.Features
 {
-    [Module("A library for placeholders. Supports multiple elements and formats rich text.", "1.2.3")]
+    [Module("A library for placeholders. Supports multiple elements and formats rich text.", "1.3.0")]
     public class PlaceholderLib : BattleBitModule
     {
         private readonly Regex re = new Regex(@"\{([^\}]+)\}", RegexOptions.Compiled);
 
         public string Text { get; set; }
         public Dictionary<string, object> Parameters;
+
+        public PlaceholderLib Create() => new PlaceholderLib();
+        public PlaceholderLib Create(string text) => new PlaceholderLib(text);
+        public PlaceholderLib Create(string text, Dictionary<string, object> parameters) => new PlaceholderLib(text, parameters);
 
         public PlaceholderLib()
         {
@@ -27,24 +32,24 @@ namespace BattleBitAPI.Features
             Parameters = new Dictionary<string, object>();
         }
 
-        public PlaceholderLib(string text, params object[] values)
+        public PlaceholderLib(string text, Dictionary<string, object> parameters)
         {
             Text = text;
-            Parameters = new();
+            Parameters = parameters;
+        }
 
-            if (values.Length > 1)
+        public PlaceholderLib AddParam(string key, object value, bool translateHex = true)
+        {
+            if (key == null || value == null)
             {
-                for (int i = 0; i < values.Length; i++)
-                {
-                    if ((i + 1) % 2 != 0)
-                        continue;
-
-                    string key = (string)values[i - 1];
-                    object obj = values[i];
-
-                    Parameters.Add(key, obj);
-                }
+                return this;
             }
+
+            if (translateHex)
+                value = GetHexTranslate(value.ToString()!);
+
+            Parameters.Add(key, value);
+            return this;
         }
 
         public PlaceholderLib AddParam(string key, object value)
@@ -54,8 +59,23 @@ namespace BattleBitAPI.Features
                 return this;
             }
 
+            value = GetHexTranslate(value.ToString()!);
+
             Parameters.Add(key, value);
             return this;
+        }
+
+        public string GetHexTranslate(string str)
+        {
+            return re.Replace(str, delegate (Match match)
+            {
+                if (match.Groups[1].Value.StartsWith("#"))
+                    return $"<color={match.Groups[1].Value}>";
+                else if (match.Groups[1].Value.Equals("/"))
+                    return "</color>";
+
+                return "{" + match.Groups[1].Value + "}";
+            });
         }
 
         public string GetSurroundedValue(string str)
@@ -87,7 +107,6 @@ namespace BattleBitAPI.Features
         public string GetValueOf(string str)
         {
             string[] equalsSplit = str.Split("=");
-            bool limited = str.StartsWith("!");
 
             if (str.StartsWith("#"))
                 return $"<color={str}>";
@@ -96,7 +115,7 @@ namespace BattleBitAPI.Features
             else if (str.StartsWith("/"))
                 return "<" + str + ">";
             else if (Parameters.ContainsKey(str))
-                return Parameters[str].ToString();
+                return GetHexTranslate(Parameters[str].ToString()!);
             else if (equalsSplit.Length > 1)
             {
                 return "<" + str + ">";
@@ -119,12 +138,15 @@ namespace BattleBitAPI.Features
             }
         }
 
-        public string Run()
+        public string Build()
         {
             return re.Replace(Text, delegate (Match match)
             {
                 return GetSurroundedValue(match.Groups[1].Value);
             });
         }
+
+        [Obsolete]
+        public string Run() => Build();
     }
 }

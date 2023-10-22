@@ -16,11 +16,12 @@ namespace BBRModules
     [Module("A module with punishments such as ban and mute.", "1.0.0")]
     [RequireModule(typeof(GranularPermissions))]
     [RequireModule(typeof(CommandHandler))]
+    [RequireModule(typeof(SQLite))]
     public class Punishments : BattleBitModule
     {
         #region Data files
         public static PunishmentsConfiguration Configuration { get; set; }
-        public static PunishmentsDatabase Database { get; set; }
+        public static SQLite Database { get; set; }
         public static SqliteConnection Connection { get; set; }
         #endregion
 
@@ -39,11 +40,13 @@ namespace BBRModules
 
         public override async Task OnConnected()
         {
-            Database = new();
+            Database = new("Punishments");
             await Database.Open();
-            await Database.CreatePunishmentsTable();
+            await Database.CreateTable("punishments", new List<string>() { 
+                "steamId TEXT PRIMARY KEY", "punishment INT", "punishedAt INT", "punishedFor INT", "punishedBy TEXT", "reason TEXT" 
+            });
 
-            Connection = Database.GetConnection();
+            Connection = Database.Connection;
         }
 
         public override async Task OnDisconnected()
@@ -53,10 +56,15 @@ namespace BBRModules
 
         #region Commands
 
-        [CommandCallback("ban", Description = "Ban a player permanently.", ConsoleCommand = true, Permissions = new[] { "Punishments.Ban" })]
-        public void BanCommand(RunnerPlayer commandSource, RunnerPlayer target, string? reason = "No reason provided.")
+        [CommandCallback("ban", Description = "Ban a player permanently.", Permissions = new[] { "Punishments.Ban" })]
+        public void BanCommand(Context context, RunnerPlayer target, string? reason = "No reason provided.")
         {
-            var punishment = new Punishment(target.SteamID.ToString(), PunishmentType.Ban, -1, commandSource.SteamID.ToString(), reason);
+            if (!(context.Source is ChatSource))
+                return;
+
+            ChatSource source = (ChatSource)context.Source;
+
+            var punishment = new Punishment(target.SteamID.ToString(), PunishmentType.Ban, -1, source.Invoker.SteamID.ToString(), reason);
             punishment.Punish();
 
             string banMessage = new PlaceholderLib(Configuration.BanMessage)
@@ -64,16 +72,20 @@ namespace BBRModules
                 .AddParam("ExpireTime", "Never")
                 .AddParam("Reason", reason)
                 .AddParam("AppealMessage", Configuration.AppealMessage)
-                .Run();
+                .Build();
 
             target.Kick(banMessage);
         }
 
-        [CommandCallback("tempban", Description = "Ban a player temporarily.", ConsoleCommand = true, Permissions = new[] { "Punishments.TempBan" })]
-        public void TempBanCommand(RunnerPlayer commandSource, RunnerPlayer target, string timestring, string? reason = "No reason provided.")
+        [CommandCallback("tempban", Description = "Ban a player temporarily.", Permissions = new[] { "Punishments.TempBan" })]
+        public void TempBanCommand(Context context, RunnerPlayer target, string timestring, string? reason = "No reason provided.")
         {
+            if (!(context.Source is ChatSource))
+                return;
+
+            ChatSource source = (ChatSource)context.Source;
             var seconds = PunishmentsUtils.GetTimestringAsSeconds(timestring);
-            var punishment = new Punishment(target.SteamID.ToString(), PunishmentType.Ban, seconds, commandSource.SteamID.ToString(), reason);
+            var punishment = new Punishment(target.SteamID.ToString(), PunishmentType.Ban, seconds, source.Invoker.SteamID.ToString(), reason);
             punishment.Punish();
 
             var expireTime = PunishmentsUtils.GetSecondsAsTimeUnit(seconds);
@@ -82,9 +94,46 @@ namespace BBRModules
                 .AddParam("ExpireTime", expireTime)
                 .AddParam("Reason", reason)
                 .AddParam("AppealMessage", Configuration.AppealMessage)
-                .Run();
+                .Build();
 
             target.Kick(banMessage);
+        }
+
+        [CommandCallback("banid", Description = "Ban a SteamID permanently.", ConsoleCommand = true, Permissions = new[] { "Punishments.BanId" })]
+        public void BanIdCommand(Context context, string targetId, string? reason = "No reason provided.")
+        {
+            string admin = context.Source is ChatSource ? (context.Source as ChatSource)!.Invoker.SteamID.ToString() : "Server";
+
+            if (!targetId.StartsWith("756511"))
+                return;
+
+            var punishment = new Punishment(targetId.ToString(), PunishmentType.Ban, -1, admin, reason);
+            punishment.Punish();
+
+            string banMessage = new PlaceholderLib(Configuration.BanMessage)
+                .AddParam("ServerName", Configuration.ServerName)
+                .AddParam("ExpireTime", "Never")
+                .AddParam("Reason", reason)
+                .AddParam("AppealMessage", Configuration.AppealMessage)
+                .Build();
+        }
+
+        [CommandCallback("tempbanid", Description = "Ban a SteamID temporarily.", ConsoleCommand = true, Permissions = new[] { "Punishments.TempBanId" })]
+        public void TempBanIdCommand(Context context, string targetId, string timestring, string? reason = "No reason provided.")
+        {
+            string admin = context.Source is ChatSource ? (context.Source as ChatSource)!.Invoker.SteamID.ToString() : "Server";
+
+            var seconds = PunishmentsUtils.GetTimestringAsSeconds(timestring);
+            var punishment = new Punishment(targetId.ToString(), PunishmentType.Ban, seconds, admin, reason);
+            punishment.Punish();
+
+            var expireTime = PunishmentsUtils.GetSecondsAsTimeUnit(seconds);
+            string banMessage = new PlaceholderLib(Configuration.BanMessage)
+                .AddParam("ServerName", Configuration.ServerName)
+                .AddParam("ExpireTime", expireTime)
+                .AddParam("Reason", reason)
+                .AddParam("AppealMessage", Configuration.AppealMessage)
+                .Build();
         }
 
         #endregion
@@ -263,56 +312,6 @@ namespace BBRModules
     {
         Ban,
         Mute
-    }
-
-    public class PunishmentsDatabase
-    {
-        public static SqliteConnection Connection { get; private set; } = null!;
-
-        public PunishmentsDatabase()
-        {
-            string directoryPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
-            string path = Path.Combine(directoryPath, "Punishments.db");
-
-            if (!Directory.Exists(directoryPath))
-                Directory.CreateDirectory(directoryPath);
-
-            if (!File.Exists(path))
-                File.Create(path);
-        }
-
-        public async Task CreatePunishmentsTable()
-        {
-            var cmd = Connection.CreateCommand();
-            cmd.CommandText =
-                @"CREATE TABLE IF NOT EXISTS punishments (steamId TEXT PRIMARY KEY, punishment INT, punishedAt INT, punishedFor INT, punishedBy INT, reason TEXT)";
-            await cmd.ExecuteNonQueryAsync();
-        }
-
-        public async Task Open()
-        {
-            string path = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Punishments.db");
-
-            string connectionString = new SqliteConnectionStringBuilder()
-            {
-                Mode = SqliteOpenMode.ReadWriteCreate,
-                DataSource = path,
-                Cache = SqliteCacheMode.Shared
-            }.ToString();
-
-            Connection = new SqliteConnection(connectionString);
-            await Connection.OpenAsync();
-        }
-
-        public async Task Close()
-        {
-            await Connection.CloseAsync();
-        }
-
-        public SqliteConnection GetConnection()
-        {
-            return Connection;
-        }
     }
 
     public class PunishmentsUtils
